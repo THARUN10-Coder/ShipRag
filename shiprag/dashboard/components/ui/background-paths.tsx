@@ -128,24 +128,15 @@ export function BackgroundPaths({
           transition={{ duration: 0.8, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
         >
-          <Link href="/dashboard">
-            <Button
-              size="lg"
-              variant="gradient"
-              className="w-full sm:w-auto h-12 px-7 text-base font-semibold group flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/25"
-            >
-              <GithubIcon className="w-5 h-5 transition-transform group-hover:scale-110" />
-              Open Dashboard
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </Link>
           <Link href="/login">
             <Button
               size="lg"
-              variant="subtle"
-              className="w-full sm:w-auto h-12 px-7 text-base font-semibold flex items-center gap-2 cursor-pointer bg-white/5 border border-white/15 text-white hover:bg-white/10"
+              variant="gradient"
+              className="w-full sm:w-auto h-12 px-8 text-base font-semibold flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/25"
             >
+              <GithubIcon className="w-5 h-5 transition-transform group-hover:scale-110" />
               Connect GitHub
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Button>
           </Link>
         </motion.div>
