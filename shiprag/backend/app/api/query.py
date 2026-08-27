@@ -84,14 +84,19 @@ def query(req: QueryRequest) -> QueryResponse:
         # 3. Build grounded prompt
         prompt = _build_prompt(req.question, chunks)
 
-        # 4. Generate answer using Google Gemini 2.5 Flash
+        # 4. Generate answer using Google Gemini 3.6 Flash
         system_instruction = (
-            "You are an expert AI software architect and codebase intelligence engine for SHIPRAG. "
-            "Provide a clean, precise, crystal-clear, structured response based on the provided repository context. "
-            "Use clear markdown with bold section headers, syntax-highlighted code blocks where helpful, and exact line-level references."
+            "You are an expert AI software architect and senior code intelligence assistant for SHIPRAG. "
+            "Your goal is to provide crystal-clear, easy-to-understand, developer-friendly explanations. "
+            "Rules for your answer:\n"
+            "1. Start with a direct, plain-English summary answering the user's question.\n"
+            "2. Break down the architecture, functions, and logic into structured, bulleted steps with bold headings.\n"
+            "3. Reference exact file names and functions naturally in your explanation.\n"
+            "4. Include concise code snippets only where necessary to illustrate key logic.\n"
+            "5. Do NOT output raw quote fragments or unformatted text blocks."
         )
 
-        gemini_model = getattr(settings, "gemini_model", "gemini-2.5-flash") or "gemini-2.5-flash"
+        gemini_model = getattr(settings, "gemini_model", "gemini-3.6-flash") or "gemini-3.6-flash"
         from app.core.gemini import generate_gemini_content_sync
         gemini_answer = generate_gemini_content_sync(
             prompt=prompt,
