@@ -7,7 +7,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { auth, googleProvider, githubProvider } from "@/lib/firebase";
+import { auth, googleProvider, githubProvider, db } from "@/lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { apiClient } from "@/lib/api/client";
 
 interface AuthContextType {
@@ -38,8 +39,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         setUser(currentUser);
         try {
+          // 1. Direct write to Firebase Firestore `users` collection
+          const userRef = doc(db, "users", currentUser.uid);
+          await setDoc(userRef, {
+            uid: currentUser.uid,
+            email: currentUser.email || "",
+            displayName: currentUser.displayName || (currentUser.email?.split("@")[0] || "Developer"),
+            photoURL: currentUser.photoURL || "",
+            authProvider: currentUser.providerData?.[0]?.providerId || "google.com",
+            lastLoginAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+
+          // 2. Direct write to Firebase Firestore `activities` collection
+          const actId = `act_${Date.now()}`;
+          const actRef = doc(db, "activities", actId);
+          await setDoc(actRef, {
+            id: actId,
+            userId: currentUser.uid,
+            type: "USER_LOGIN",
+            message: `User signed in: ${currentUser.displayName || currentUser.email}`,
+            created_at: new Date().toISOString(),
+          });
+
+          // 3. Sync with backend API
           const idToken = await currentUser.getIdToken();
-          // Sync with Firestore via backend
           await apiClient.authenticateGoogle({
             uid: currentUser.uid,
             email: currentUser.email,
