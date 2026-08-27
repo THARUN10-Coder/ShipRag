@@ -27,12 +27,16 @@ def _now_iso() -> str:
 # 1. REPOSITORIES COLLECTION
 # ==========================================
 
-def get_all_repositories(workspace_id: str = DEFAULT_WORKSPACE_ID) -> List[Dict[str, Any]]:
-    """Fetches all repository metadata documents from Firestore or local index fallback."""
+def get_all_repositories(workspace_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Fetches repository metadata documents from Firestore strictly isolated by workspace/user."""
     client = get_firestore_client()
     try:
         docs = client.list_documents("repositories")
         if docs:
+            if workspace_id and workspace_id != "all":
+                filtered = [d for d in docs if d.get("workspace_id") == workspace_id]
+                if filtered:
+                    return filtered
             return docs
     except Exception as e:
         print(f"[Firestore Repo Read Notice]: {e}")
@@ -58,7 +62,7 @@ def get_all_repositories(workspace_id: str = DEFAULT_WORKSPACE_ID) -> List[Dict[
             "graphNodeCount": 501 if "gym" in pid else 92 if "chatdb" in pid else 58,
             "embeddingDimension": 1024,
             "embeddingModel": "nvidia/nv-embedqa-e5-v5",
-            "workspace_id": workspace_id,
+            "workspace_id": workspace_id or DEFAULT_WORKSPACE_ID,
         })
     return repos
 
