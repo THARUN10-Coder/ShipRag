@@ -49,9 +49,12 @@ export const apiClient = {
     }
   },
 
-  async getRepositories(): Promise<RealRepository[]> {
+  async getRepositories(workspaceId?: string): Promise<RealRepository[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/repositories`);
+      const url = workspaceId 
+        ? `${API_BASE_URL}/api/repositories?workspace_id=${encodeURIComponent(workspaceId)}`
+        : `${API_BASE_URL}/api/repositories`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch repositories");
       const data = await res.json();
       return data.repositories || [];

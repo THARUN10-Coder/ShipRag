@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Repository } from "@/types/repository";
 import { apiClient } from "@/lib/api/client";
+import { useAuth } from "@/context/auth-context";
 
 export type RepoFilter = "all" | string;
 
@@ -25,6 +26,7 @@ interface RepositoryContextType {
 const RepositoryContext = createContext<RepositoryContextType | undefined>(undefined);
 
 export function RepositoryProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState<RepoFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,13 +37,14 @@ export function RepositoryProvider({ children }: { children: React.ReactNode }) 
   const refreshRepositories = useCallback(async () => {
     setIsLoading(true);
     try {
-      const realRepos = await apiClient.getRepositories();
+      const userWorkspaceId = user?.uid ? `ws_${user.uid}` : undefined;
+      const realRepos = await apiClient.getRepositories(userWorkspaceId);
       if (realRepos && Array.isArray(realRepos)) {
         const mappedRepos: Repository[] = realRepos.map((r) => ({
           id: r.id,
           name: r.name,
           fullName: r.fullName || `github.com/${r.name}`,
-          owner: r.fullName ? r.fullName.split("/")[0] : "user",
+          owner: r.fullName ? r.fullName.split("/")[0] : (user?.displayName || "user"),
           url: `https://github.com/${r.fullName || r.name}`,
           defaultBranch: r.defaultBranch || "main",
           status: (r.status as any) || "active",
@@ -66,7 +69,7 @@ export function RepositoryProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.uid, user?.displayName]);
 
   useEffect(() => {
     refreshRepositories();
