@@ -1,0 +1,17 @@
+{
+  "include": [
+    "shiprag/backend"
+  ],
+  "extraPaths": [
+    "shiprag",
+    "shiprag/backend",
+    "shiprag/backend/app",
+    "C:/Users/Tharun n/AppData/Local/Programs/Python/Python313/Lib/site-packages"
+  ],
+  "typeCheckingMode": "off",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "reportAttributeAccessIssue": false,
+  "reportArgumentType": false,
+  "reportGeneralTypeIssues": false
+}

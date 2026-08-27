@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "physical-ai-infrastructure-setup-and-resilient-scaling": {
+      "source": "NVIDIA/skills",
+      "sourceType": "github",
+      "skillPath": "skills/physical-ai-infrastructure-setup-and-resilient-scaling/SKILL.md",
+      "computedHash": "cc91da39a1a68ad81a85b157719098cf93cc05f965dfc429dc8816fea665b11e"
+    }
+  }
+}

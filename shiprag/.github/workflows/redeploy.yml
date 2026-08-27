@@ -1,0 +1,67 @@
+# SHIPRAG Automated Redeployment Pipeline
+# Triggers automated incremental re-indexing whenever documentation files are pushed to main/master.
+
+name: SHIPRAG Auto-Deploy
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "**.md"
+
+jobs:
+  shiprag-redeploy:
+    name: Sync Docs to Vector Index
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Compute HMAC Signature and Trigger Webhook
+        env:
+          SHIPRAG_API_URL: ${{ secrets.SHIPRAG_API_URL || 'https://api.shiprag.dev' }}
+          SHIPRAG_WEBHOOK_SECRET: ${{ secrets.SHIPRAG_WEBHOOK_SECRET }}
+          PROJECT_ID: ${{ vars.SHIPRAG_PROJECT_ID || github.event.repository.name }}
+        run: |
+          echo "🚀 Triggering SHIPRAG automated doc re-indexing for project: $PROJECT_ID"
+          
+          PAYLOAD=$(cat <<EOF
+          {
+            "repository": {
+              "name": "${{ github.event.repository.name }}",
+              "full_name": "${{ github.repository }}"
+            },
+            "commits": ${{ toJson(github.event.commits) }}
+          }
+          EOF
+          )
+          
+          if [ -n "$SHIPRAG_WEBHOOK_SECRET" ]; then
+            SIGNATURE="sha256=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$SHIPRAG_WEBHOOK_SECRET" | sed 's/^.* //')"
+          else
+            SIGNATURE=""
+          fi
+          
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$SHIPRAG_API_URL/api/webhook/github?project_id=$PROJECT_ID" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -H "X-Hub-Signature-256: $SIGNATURE" \
+            -d "$PAYLOAD")
+            
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d':' -f2)
+          BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
+          
+          echo "Response Status: $HTTP_STATUS"
+          echo "Response Body: $BODY"
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Documentation successfully re-indexed in pgvector!"
+          else
+            echo "❌ Failed to re-index documentation. Check API URL and Webhook secret."
+            exit 1
+          fi
+

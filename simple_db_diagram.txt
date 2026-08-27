@@ -1,0 +1,72 @@
+SHIPRAG DATABASE SETUP - SIMPLE VIEW
+====================================
+
+1. INSTALL POSTGRESQL + VECTOR
+   [Host Machine]
+        │
+        � ▼ Install PostgreSQL
+   [PostgreSQL Server]
+        │
+        � ▼ CREATE EXTENSION vector;
+   [PostgreSQL with pgvector]
+
+2. CREATE DATABASES
+   � ┌─────────────────�┐    � ┌──────────────────�┐
+   │ shiprag_auth    │    │ shiprag_chunks   │
+   │ (for auth)      │    │ (for data)       │
+   └─────────────────�┘    └──────────────────�┘
+
+3. RUN MIGRATIONS
+   shiprag_auth:    shiprag_chunks:
+   ────────────    ────────────────
+   • users table    • projects table
+   • api_keys table • chunks table
+                   • vector indices
+                   • search functions
+
+4. CONFIGURE BACKEND
+   .env file:
+   SUPABASE_URL=postgresql://shiprag:shiprag_password@localhost:5432/shiprag_chunks
+   SUPABASE_SERVICE_KEY=shiprag_password
+
+5. VERIFY SETUP
+   Connect to databases and check:
+   - \dt (list tables)
+   - SELECT * FROM users;
+   - SELECT * FROM projects;
+   - SELECT '[1,2,3]'::vector;  -- should work if pgvector installed
+
+TABLE RELATIONSHIPS
+====================================
+shiprag_auth.users  1:N  shiprag_auth.api_keys
+shiprag_auth.users  1:N  shiprag_chunks.projects
+shiprag_chunks.projects 1:N  shiprag_chunks.chunks
+
+VECTOR SEARCH CAPABILITY
+====================================
+The chunks table stores:
+- Text content
+- 1536-dimensional vector embeddings
+- Full-text search index (content_tsv)
+- Hybrid search function (vector + keyword)
+
+QUICK START COMMANDS (if PostgreSQL installed):
+====================================
+# 1. Create user and databases
+createdb -U postgres shiprag_auth
+createdb -U postgres shiprag_chunks
+createuser -U postgres shiprag
+# Set password for shiprag user when prompted
+
+# 2. Enable pgvector on both databases
+psql -U postgres -d shiprab_auth -c "CREATE EXTENSION IF NOT EXISTS vector;"
+psql -U postgres -d shiprag_chunks -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# 3. Run migrations
+psql -U shiprag -d shiprag_auth -f migrations/001_auth_tables.sql
+psql -U shiprag -d shiprag_chunks -f migrations/002_projects_table.sql
+psql -U shiprag -d shiprag_chunks -f migrations/003_chunks_table.sql
+
+# 4. Test connection
+psql -U shiprag -d shiprag_chunks -c "\dt"
+psql -U shiprag -d shiprag_chunks -c "SELECT '[1,1,1]'::vector;"

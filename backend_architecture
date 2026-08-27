@@ -1,0 +1,105 @@
+# SHIPRAG System Architecture & Execution Workflow
+
+This visual overview illustrates how the **SHIPRAG Backend Components** interact during document ingestion, token chunking, vector embedding, and hybrid search generation.
+
+---
+
+## 1. Complete End-to-End System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client ["Client / Ingestion Layer"]
+        CLI["CLI Tool / Web Dashboard"]
+        GH["GitHub Push Webhooks"]
+    end
+
+    subgraph Auth ["Auth Service (:8001)"]
+        JWT["JWT Auth & API Key Validation"]
+        Tenant["Multi-Tenant Organization Isolation"]
+    end
+
+    subgraph Ingest ["Ingestion Service (:8002)"]
+        Parser["Multi-Format Parser (.md, .pdf, .docx, .html)"]
+        StreamProd["Redis Streams Producer ('doc-stream')"]
+    end
+
+    subgraph Worker ["Embedding Worker (:8003)"]
+        StreamCons["Redis Streams Consumer"]
+        Chunker["Token Chunker (app.core.chunking)"]
+        Embedder["Embedding Model (text-embedding-3-small)"]
+    end
+
+    subgraph Storage ["Persistence Layer"]
+        PGVector[("PostgreSQL + pgvector")]
+        RedisCache[("Redis Cache")]
+    end
+
+    subgraph Search ["Retrieval Service (:8004)"]
+        Hybrid["Hybrid Search (70% Vector + 30% Keyword BM25)"]
+        LLM["LLM Generation (claude-sonnet-4-6)"]
+        SSE["SSE Response Streaming"]
+    end
+
+    CLI -->|Request + Bearer Token| JWT
+    GH -->|Webhook Event| Parser
+    JWT --> Tenant --> Parser
+    Parser -->|Raw Document| StreamProd
+    StreamProd -->|Publish Event| StreamCons
+    StreamCons --> Chunker
+    Chunker -->|Tokens & Overlaps| Embedder
+    Embedder -->|1536-dim Vectors| PGVector
+    
+    CLI -->|Query Request| Hybrid
+    PGVector <-->|Dense Search| Hybrid
+    RedisCache <-->|Cached Chunks| Hybrid
+    Hybrid -->|Relevant Context| LLM
+    LLM -->|Stream Answer| SSE
+    SSE --> CLI
+```
+
+---
+
+## 2. Step-by-Step `demo_backend.py` Execution Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Demo Script
+    participant Config as app.core.config
+    participant Chunker as app.core.chunking
+    participant Embedder as app.core.embeddings
+    participant VStore as app.core.vectorstore
+    participant Services as /services Registry
+
+    User->>Config: 1. Load Backend Settings
+    Config-->>User: embedding_model="text-embedding-3-small", chunk_size=500, top_k=5
+
+    User->>Chunker: 2. Pass Sample Markdown Doc (779 chars)
+    Note over Chunker: Apply Tiktoken sliding window (500 tokens, 50 overlap)
+    Chunker-->>User: Return 1 Processed Chunk with Metadata
+
+    User->>Embedder: 3. Generate Vector Embeddings (Simulated)
+    Embedder-->>User: 1536-Dimensional Dense Float Array
+
+    User->>VStore: 4. Upsert & Query Vector Store
+    VStore-->>User: Top K Matched Chunks (Hybrid Similarity Score)
+
+    User->>Services: 5. Inspect Microservices Routing
+    Services-->>User: Auth (:8001), Ingestion (:8002), Worker (:8003), Retrieval (:8004)
+```
+
+---
+
+## 3. Core Microservices Breakdown
+
+| Service Name | Port | Key Function | Core Stack / Components |
+| :--- | :---: | :--- | :--- |
+| **Auth Service** | `:8001` | Authentication & Tenant Isolation | JWT validation, `sk-shiprag-...` key lookup |
+| **Ingestion Service** | `:8002` | File parsing & async stream dispatch | Parsers (`PyPDF2`, `BeautifulSoup`), Redis Streams producer |
+| **Embedding Worker** | `:8003` | Chunking & Vector Upserts | `app.core.chunking`, OpenAI / HuggingFace embeddings, `pgvector` |
+| **Retrieval Service** | `:8004` | Hybrid Search RAG & LLM streaming | 70% dense vector + 30% BM25 keyword search, `claude-sonnet-4-6`, SSE |
+
+---
+
+> [!NOTE]
+> An interactive visualizer is available in your browser window: [workflow_visualizer.html](file:///C:/Users/Tharun%20n/.gemini/antigravity-ide/brain/1dbda96d-0e6c-4d67-bdce-0b482b635ff4/workflow_visualizer.html).

@@ -1,0 +1,165 @@
+SHIPRAG MVP Database Setup Visualization
+========================================
+
+STEP 1: INFRASTRUCTURE SETUP
+�┌─────────────────�┐    � ┌──────────────────�┐    � ┌────────────────────�┐
+│   Host Machine  │    │ PostgreSQL DB    │    │pgvector Extension  │
+│  (Windows/Linux)│───�▶│   Server         │�◀───│  (1536 dimensions)│
+�└─────────────────�┘    └──────────────────�┘    └────────────────────�┘
+         │                         │                         │
+         │ install psql client     │ CREATE EXTENSION vector;│
+         � ▼                         � ▼                         � ▼
+�┌─────────────────�┐    � ┌──────────────────�┐    � ┌────────────────────�┐
+│psql Client      │    │Ready for DB      │    │Vector Search Capable│
+│(for migrations) │    │Creation          │    │                      │
+�└─────────────────�┘    └──────────────────�┘    └────────────────────�┘
+
+STEP 2: DATABASE CREATION
+�┌─────────────────────────────────────────────────────────────────�┐
+│                     CREATE DATABASE COMMANDS                    │
+├─────────────────────────────────────────────�┬───────────────────�┤
+│ CREATE USER shiprag WITH PASSWORD '...';    │                   │
+│ CREATE DATABASE shiprag_auth;               │                   │
+│ CREATE DATABASE shiprag_chunks;             │                   │
+│ GRANT ALL PRIVILEGES ON DATABASE shiprag_auth TO shiprag;       │
+│ GRANT ALL PRIVILEGES ON DATABASE shiprag_chunks TO shiprag;     │
+�└─────────────────────────────────────────────�┴───────────────────�┘
+                                                       │
+               � ┌─────────────────────�┐      � ┌────────────────────�┐
+               � ▼                     � ▼      � ▼                    � ▼
+    � ┌──────────────────�┐      � ┌──────────────────�┐  � ┌──────────────────�┐
+    │  shiprag_auth    │      │ shiprag_chunks   │  │ (empty for now)  │
+    │ (for auth tables)│      │ (for chunks data)│  │                  │
+    └──────────────────�┘      └──────────────────┘  └──────────────────�┘
+
+STEP 3: MIGRATION EXECUTION
+�┌─────────────────────────────────────────────────────────────────�┐
+│                     MIGRATION SCRIPTS                           │
+├─────────────────────────────────────────────�┬───────────────────�┤
+│ 001_auth_tables.sql → shiprag_auth DB      │                   │
+│                                             │                   │
+│ 002_projects_table.sql → shiprag_chunks DB │                   │
+│                                             │                   │
+│ 003_chunks_table.sql → shiprag_chunks DB   │                   │
+�└─────────────────────────────────────────────�┴───────────────────�┘
+                                                       │
+        � ┌─────────────────────�┐      � ┌────────────────────�┐
+        � ▼                     � ▼      � ▼                    � ▼
+�┌──────────────────�┐    � ┌──────────────────�┐  � ┌──────────────────�┐
+│   USERS TABLE    │    │ PROJECTS TABLE   │  │ CHUNKS TABLE     │
+│   API_KEYS TABLE │    │                  │  │                  │
+�└──────────────────�┘    └──────────────────�┘  └──────────────────�┘
+
+STEP 4: BACKEND CONNECTION
+�┌─────────────────────────────────────────────────────────────────�┐
+│                  BACKEND CONFIGURATION (.env)                   │
+├─────────────────────────────────────────────�┬───────────────────�┤
+│ SUPABASE_URL=postgresql://shiprag:...@localhost:5432/shiprag_chunks │
+│ SUPABASE_SERVICE_KEY=shiprag_password                               │
+│ OPENAI_API_KEY=your_key                                             │
+│ ANTHROPIC_API_KEY=your_key                                          │
+�└─────────────────────────────────────────────�┴───────────────────�┘
+                                                       │
+         � ┌─────────────────────�┐      � ┌────────────────────�┐
+         � ▼                     � ▼      � ▼                    � ▼
+�┌──────────────────�┐    � ┌──────────────────�┐  � ┌──────────────────�┐
+│   Backend App    │    │ PostgreSQL DB    │  │ Vector Search    │
+│ (FastAPI/Uvicorn)│�◀───�┤(shiprag_chunks)  │�◀───�┣�━ match_chunks()  │
+│                  │    │                  │  │ � ┃ match_chunks_  │
+�└──────────────────�┘    └──────────────────�┘  � ┃   hybrid()     � ┃
+                                               └──────────────────�┘
+
+DATABASE SCHEMA OVERVIEW
+========================
+
+shiprag_auth database:
+├── users
+│   ├── id (UUID PK)
+│   ├── email (TEXT UNIQUE)
+│   ├── password_hash (TEXT)
+│   ├── display_name (TEXT)
+│   ├── created_at (TIMESTAMPTZ)
+│   └── updated_at (TIMESTAMPTZ)
+│
+├── api_keys
+│   ├── id (UUID PK)
+│   ├── user_id (UUID FK → users.id)
+│   ├── project_id (TEXT)
+│   ├── key_prefix (TEXT)
+│   ├── key_hash (TEXT UNIQUE)
+│   ├── label (TEXT)
+│   ├── is_active (BOOLEAN)
+│   ├── last_used_at (TIMESTAMPTZ)
+│   └── created_at (TIMESTAMPTZ)
+
+shiprag_chunks database:
+├── projects
+│   ├── id (UUID PK)
+│   ├── project_id (TEXT UNIQUE)
+│   ├── user_id (UUID FK → users.id)
+│   ├── name (TEXT)
+│   ├── description (TEXT)
+│   ├── docs_dir (TEXT)
+│   ├── config (JSONB)
+│   ├── chunk_count (INT)
+│   ├── last_synced_at (TIMESTAMPTZ)
+│   ├── created_at (TIMESTAMPTZ)
+│   └── updated_at (TIMESTAMPTZ)
+│
+�└── chunks
+    ├── id (BIGSERIAL PK)
+    ├── project_id (TEXT)
+    ├── user_id (UUID)
+    ├── source (TEXT)
+    ├── chunk_index (INT)
+    ├── content (TEXT)
+    ├── embedding (vector(1536))
+    ├── content_tsv (TSVECTOR) -- for full-text search
+    ├── metadata (JSONB)
+    └── created_at (TIMESTAMPTz)
+
+INDICES & FUNCTIONS
+-------------------
+- idx_users_email (on users.email)
+- idx_api_keys_hash, idx_api_keys_user (on api_keys)
+- idx_projects_user, idx_projects_project_id (on projects)
+- Multiple indices on chunks for:
+  * Vector similarity (ivfflat)
+  * Full-text search (gin on content_tsv)
+  * Tenant isolation (project_id, project_id+source)
+- SQL Functions:
+  * match_chunks() - vector-only search
+  * match_chunks_hybrid() - vector + keyword search
+
+USAGE FLOW
+==========
+1. User runs: `shiprag login` → validates against users/api_keys tables
+2. User runs: `shiprag init` → creates project in projects table
+3. User runs: `shiprag deploy` →
+   a. Reads local docs
+   b. Chunks + embeds text
+   c. Upserts to chunks table via Supabase client
+   d. Updates project.chunk_count
+4. Query flow:
+   a. Frontend sends query to /api/query
+   b. Backend embeds query text
+   c. Calls match_chunks_hybrid() to find relevant chunks
+   d. Returns results to LLM for answer generation
+
+VERIFICATION COMMANDS
+=====================
+-- Check auth tables
+\c shiprag_auth
+\d+
+SELECT * FROM users;
+SELECT * FROM api_keys;
+
+-- Check chunks database
+\c shiprag_chunks
+\d+
+SELECT * FROM projects;
+SELECT count(*) FROM chunks;
+SELECT * FROM chunks LIMIT 1;
+
+-- Test vector extension
+SELECT '[1,2,3]'::vector;
