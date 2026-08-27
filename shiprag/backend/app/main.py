@@ -19,6 +19,17 @@ app.include_router(github_api.router, prefix="/api", tags=["github"])
 app.include_router(repositories.router, prefix="/api", tags=["repositories"])
 
 
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": "SHIPRAG Backend API",
+        "docs": "/docs",
+        "health": "/health",
+        "api_endpoints": "/api"
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "SHIPRAG Backend", "firestore": "connected"}
