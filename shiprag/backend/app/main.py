@@ -5,9 +5,17 @@ from app.api import query, ingest, github_api, repositories, auth
 
 app = FastAPI(title="SHIPRAG", version="0.1.0")
 
+ALLOWED_ORIGINS = [
+    "https://ship-rag.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: lock down to dashboard origin before real deploy
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*-tharun10-coders-projects\.vercel\.app|https://ship-rag.*\.vercel\.app",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
