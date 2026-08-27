@@ -1,13 +1,9 @@
 services:
   - type: web
     name: shiprag-backend
-    env: python
-    rootDir: shiprag/backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    env: docker
+    dockerfilePath: shiprag/backend/Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
       - key: GEMINI_API_KEY
         sync: false
       - key: NVIDIA_API_KEY
